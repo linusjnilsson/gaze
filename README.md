@@ -138,3 +138,6 @@ issue. See **[CONTRIBUTING.md](CONTRIBUTING.md)** for where to start and how to 
 - Pointer jump follows MAGIC pointing (Zhai, Morimoto and Ihde, CHI 1999).
 
 The same credits are under **About & Credits** in the app's menu.
+
+Gaze itself is licensed [CC BY-NC-SA 4.0](LICENSE): use it, change it and share it, with credit,
+non-commercially, and under the same license.
