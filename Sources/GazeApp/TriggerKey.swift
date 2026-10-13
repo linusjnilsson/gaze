@@ -8,7 +8,7 @@ import Foundation
 enum TriggerKey: String, CaseIterable, Identifiable {
     case rightCommand, rightOption, rightControl, rightShift
     case leftCommand, leftOption, function
-    case doubleOption, doubleControl, doubleCommand
+    case doubleLeftCommand, doubleOption, doubleControl, doubleCommand
     case capsLock
     case middleButton, backButton, forwardButton
 
@@ -19,7 +19,7 @@ enum TriggerKey: String, CaseIterable, Identifiable {
         /// (IOKit's NX_DEVICE*KEYMASK); `nil` for keys without a twin.
         case tap(keyCode: UInt16, flag: NSEvent.ModifierFlags, deviceMask: UInt?)
         /// Either key of a modifier, tapped twice in quick succession.
-        case doubleTap(flag: NSEvent.ModifierFlags)
+        case doubleTap(flag: NSEvent.ModifierFlags, deviceMask: UInt? = nil)
         /// Caps Lock, remapped while selected to a key that does nothing else.
         case capsLock
         /// A mouse button (2 = middle, 3 = back, 4 = forward), kept from apps while selected.
@@ -35,6 +35,7 @@ enum TriggerKey: String, CaseIterable, Identifiable {
         case .leftCommand: .tap(keyCode: 55, flag: .command, deviceMask: 0x08)
         case .leftOption: .tap(keyCode: 58, flag: .option, deviceMask: 0x20)
         case .function: .tap(keyCode: 63, flag: .function, deviceMask: nil)
+        case .doubleLeftCommand: .doubleTap(flag: .command, deviceMask: 0x08)
         case .doubleOption: .doubleTap(flag: .option)
         case .doubleControl: .doubleTap(flag: .control)
         case .doubleCommand: .doubleTap(flag: .command)
@@ -54,6 +55,7 @@ enum TriggerKey: String, CaseIterable, Identifiable {
         case .leftCommand: "Left ⌘"
         case .leftOption: "Left ⌥"
         case .function: "🌐 / fn"
+        case .doubleLeftCommand: "Double-tap left ⌘"
         case .doubleOption: "Double-tap ⌥"
         case .doubleControl: "Double-tap ⌃"
         case .doubleCommand: "Double-tap ⌘"
@@ -68,7 +70,7 @@ enum TriggerKey: String, CaseIterable, Identifiable {
     var action: String {
         switch kind {
         case .tap, .capsLock: "tap \(label)"
-        case .doubleTap(let flag): "double-tap \(flag == .option ? "⌥" : flag == .control ? "⌃" : "⌘")"
+        case .doubleTap(let flag, let deviceMask): "double-tap \(deviceMask != nil ? "left " : "")\(flag == .option ? "⌥" : flag == .control ? "⌃" : "⌘")"
         case .mouse: "click the \(label.lowercased())"
         }
     }
@@ -90,7 +92,7 @@ enum TriggerKey: String, CaseIterable, Identifiable {
     /// Groups for the picker.
     static let groups: [(String, [TriggerKey])] = [
         ("Tap alone", [.rightCommand, .rightOption, .rightControl, .rightShift, .leftCommand, .leftOption, .function, .capsLock]),
-        ("Double-tap", [.doubleOption, .doubleControl, .doubleCommand]),
+        ("Double-tap", [.doubleLeftCommand, .doubleCommand, .doubleOption, .doubleControl]),
         ("Mouse", [.middleButton, .backButton, .forwardButton]),
     ]
 }
@@ -111,7 +113,7 @@ extension TriggerKey {
 
     var modifierFlag: NSEvent.ModifierFlags? {
         switch kind {
-        case .tap(_, let flag, _), .doubleTap(let flag): flag
+        case .tap(_, let flag, _), .doubleTap(let flag, _): flag
         case .capsLock, .mouse: nil
         }
     }
@@ -145,8 +147,9 @@ struct ModifierTrigger {
             if armed, event.keyCode == keyCode, !isDown { return .commit }
             // Another modifier joined in.
             return armed ? .cancel : nil
-        case .doubleTap(let flag):
-            return doubleTap(flag: flag, modifiers: modifiers, at: event.timestamp, armed: armed)
+        case let .doubleTap(flag, deviceMask):
+            let isDown = deviceMask.map { event.modifierFlags.rawValue & $0 != 0 } ?? modifiers.contains(flag)
+            return doubleTap(flag: flag, isDown: isDown, modifiers: modifiers, at: event.timestamp, armed: armed)
         case .capsLock, .mouse:
             return armed ? .cancel : nil
         }
@@ -158,8 +161,8 @@ struct ModifierTrigger {
     }
 
     /// Two quick taps of the modifier alone; holding the second arms, and releasing it commits.
-    private mutating func doubleTap(flag: NSEvent.ModifierFlags, modifiers: NSEvent.ModifierFlags, at time: TimeInterval, armed: Bool) -> Action? {
-        let isDown = modifiers.contains(flag)
+    /// `isDown` is that key's state (for a one-sided trigger, the other side's key doesn't count).
+    private mutating func doubleTap(flag: NSEvent.ModifierFlags, isDown: Bool, modifiers: NSEvent.ModifierFlags, at time: TimeInterval, armed: Bool) -> Action? {
         if isDown, !doubleTapKeyDown {
             doubleTapKeyDown = true
             guard modifiers == flag else {

@@ -11,7 +11,7 @@ import SwiftUI
 @Observable
 final class FocusController {
     var isEnabled = true
-    var triggerKey = TriggerKey.rightCommand {
+    var triggerKey = TriggerKey.doubleLeftCommand {
         didSet { if triggerKey != oldValue { configureTrigger() } }
     }
     /// Focuses the pane looked at inside the focused window; `nil` is off. Only modifier keys
@@ -46,7 +46,7 @@ final class FocusController {
     @ObservationIgnored private var isArmed = false
     @ObservationIgnored private var armedAt: TimeInterval = 0
     @ObservationIgnored private var previewTimer: Timer?
-    @ObservationIgnored private var windowRecognizer = ModifierTrigger(.rightCommand)
+    @ObservationIgnored private var windowRecognizer = ModifierTrigger(.doubleLeftCommand)
     // Pane trigger state.
     @ObservationIgnored private var paneRecognizer: ModifierTrigger?
     @ObservationIgnored private var isPaneArmed = false
@@ -261,7 +261,7 @@ final class FocusController {
         case let .tap(keyCode, flag, _):
             guard keyCode != event.keyCode else { return nil }
             held = flag
-        case .doubleTap(let flag): held = flag
+        case .doubleTap(let flag, _): held = flag
         case .capsLock, .mouse: held = []
         }
         guard modifiers.subtracting(.shift) == held.subtracting(.shift) else { return nil }

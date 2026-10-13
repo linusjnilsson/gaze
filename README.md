@@ -22,16 +22,16 @@ above your screen, an on-device neural network and a short calibration.
 
 ## What it does
 
-- **Switch windows by looking.** Look at a window, tap **right ⌘** (or another trigger of your
-  choice), and it's focused. Hold the key to see an outline of what it will pick first; press any
-  other key and nothing happens, so ⌘-shortcuts keep working.
+- **Switch windows by looking.** Look at a window, double-tap **left ⌘** (or another trigger of
+  your choice), and it's focused. Keep the second tap held to see an outline of what it will pick
+  first; press any other key and nothing happens, so ⌘-shortcuts keep working.
 - **Bring back buried windows.** While holding the trigger, windows hidden right behind the focused
   one show as dashed outlines. Look where one is and tap to bring it back.
 - **See everything at once.** Tap **⇧** while holding the trigger for an overview of every window,
   as tiles in a fixed order so your eyes learn where each app lives. Look at one and let go, or
   just click it.
-- **Focus panes inside a window.** A second key focuses the split, editor or sidebar you're looking
-  at: terminal splits (including iTerm), editors, lists.
+- **Focus panes inside a window.** Double-tap **⌥** to focus the split, editor or sidebar you're
+  looking at: terminal splits (including iTerm), editors, lists.
 - **Move between displays by looking** (optional). Rest your eyes on another display and focus moves
   there, to the window you last used on it. Typing or using the mouse holds it back, so reading
   across displays never steals focus.

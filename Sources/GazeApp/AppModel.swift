@@ -169,7 +169,7 @@ final class AppModel {
         let defaults = UserDefaults.standard
         focus = FocusController(engine: engine)
         focus.isEnabled = defaults.object(forKey: Self.focusKey) as? Bool ?? true
-        focus.triggerKey = defaults.string(forKey: Self.triggerKey).flatMap(TriggerKey.init) ?? .rightCommand
+        focus.triggerKey = defaults.string(forKey: Self.triggerKey).flatMap(TriggerKey.init) ?? .doubleLeftCommand
         focus.pointerJumpEnabled = defaults.object(forKey: Self.pointerJumpKey) as? Bool ?? true
         if let data = defaults.data(forKey: Self.tuningKey), let tuning = try? JSONDecoder().decode(FocusTuning.self, from: data) {
             focusTuning = tuning

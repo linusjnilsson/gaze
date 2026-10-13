@@ -18,13 +18,13 @@ experiments that shaped it, and how it keeps learning.
 4. The main window shows detected landmarks, the iris inside each eye, head position and rotation,
    and eye angles.
 
-**Switching focus.** Look at a window and tap **right ⌘**. Other triggers to try, in the picker:
-any right-hand modifier, left ⌘ or ⌥, or 🌐/fn tapped alone; Caps Lock (remapped to F18 with
-`hidutil` while selected, undone on quit or when another trigger is picked); a double-tap of ⌥, ⌃
-or ⌘; or the middle, back or forward mouse button (taken from apps by an event tap while selected). The
+**Switching focus.** Look at a window and double-tap **left ⌘** (the right ⌘ doesn't count, so
+it stays free for shortcuts). Other triggers to try, in the picker: any right-hand modifier, left
+⌘ or ⌥, or 🌐/fn tapped alone; Caps Lock (remapped to F18 with `hidutil` while selected, undone on
+quit or when another trigger is picked); a double-tap of ⌥, ⌃ or either ⌘; or the middle, back or forward mouse button (taken from apps by an event tap while selected). The
 window comes to the front with keyboard focus, and the pointer moves into it if it was elsewhere.
-Hold the key to see an outline of the window it will pick; pressing any other key or clicking
-cancels, so ⌘-shortcuts typed with the right ⌘ never switch. A small window buried by raising a big one comes back the same way: look where it was and tap. Looking at
+Hold the key (for a double-tap, the second tap) to see an outline of the window it will pick;
+pressing any other key or clicking cancels, so ⌘-shortcuts never switch. A small window buried by raising a big one comes back the same way: look where it was and tap. Looking at
 the window that already has focus means "what's behind here", so repeated taps toggle between the
 two. While you hold the key, the windows buried directly behind the focused one show as dashed outlines
 with a small name tag (only that first layer: windows stacked deeper can't be told apart by eye, and
@@ -39,7 +39,7 @@ and a click focuses it at once (the overlay takes the click, so it doesn't reach
 highlighted, so looking beside a tile or just past its edge counts too, and it moves on only once
 another tile is clearly nearer. Big, separate tiles are easy to hit
 with a gaze that's a couple of centimeters off, and buried windows get a tile like any other. The grid opens when ⇧ goes up (or after holding it
-a quarter second), so ⌘⇧ shortcuts typed with right ⌘, whose key comes before ⇧ is let go, don't
+a quarter second), so ⌘⇧ shortcuts typed with the trigger's modifier, whose key comes before ⇧ is let go, don't
 flash it. Looking alone never switches: you read
 other windows all the time without wanting to type into them.
 
