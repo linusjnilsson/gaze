@@ -7,6 +7,14 @@
 <p align="center"><b>Focus follows your eyes.</b><br>
 A macOS menu bar app that switches to the window you're looking at, using the Mac's built-in camera.</p>
 
+<p align="center">
+  <img src="docs/media/gaze-demo.gif" width="800" alt="Looking at a terminal and double-tapping left command brings it to the front; the window outline and app label show what will be picked, then a pane inside it is focused">
+</p>
+
+<p align="center"><sub>Look, double-tap left ⌘, and the window you're looking at comes to the front; double-tap ⌥
+to focus a pane inside it. The orange dot is where Gaze thinks I'm looking.
+<a href="docs/media/gaze-demo.mp4">Sharper video (MP4)</a></sub></p>
+
 ---
 
 ## The problem
@@ -49,6 +57,13 @@ After calibration, Gaze is typically **5–10 mm off** on a laptop screen with y
 around **10 mm** while you turn your head; the best recordings so far reach 4 mm. That's not enough
 to pick a button, but plenty to tell windows apart. Gaze is built around that: it treats your gaze
 as a blur the size of its own error and only acts when one window clearly wins.
+
+<p align="center">
+  <img src="docs/media/demo.gif" width="700" alt="The orange gaze dot follows the eyes from target to target across a full-screen test grid">
+</p>
+
+<p align="center"><sub>Live tracking on a full-screen <a href="docs/media/test-grid.png">test grid</a>: the orange dot
+follows my eyes from target to target. <a href="docs/media/demo.mp4">Sharper video (MP4)</a></sub></p>
 
 ## Get it
 
