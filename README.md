@@ -117,6 +117,17 @@ to a GitHub release tagged `vx.y.z`; installed copies find it through
 keychain: keep a backup (`generate_keys -x`), since without it installed copies can't be updated
 again. The one-time setup is listed at the top of `scripts/release.sh`.
 
+## Contributing
+
+Gaze is young, and there's plenty left that would make a real difference: tracking at the screen
+edges, holding accuracy while the head turns, other Macs and webcams, smoother onboarding. Every
+tracking change can be measured: calibrations can be recorded and replayed offline with
+`gaze-eval`, so a better idea shows up as millimeters, not opinions. If you can make the number go
+down, you've improved it for everyone.
+
+Bug reports, calibration results from your setup and ideas are just as welcome as code: open an
+issue. See **[CONTRIBUTING.md](CONTRIBUTING.md)** for where to start and how to measure a change.
+
 ## Credits and license
 
 - Gaze network: **ETH-XGaze** (Zhang et al., ECCV 2020), pretrained weights via
