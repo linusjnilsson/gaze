@@ -310,6 +310,10 @@ final class CalibrationController {
                 ))
             }
         }
+        // The last dot is done: the refit below takes a moment, shown as such rather than as a
+        // dot still waiting to be looked at.
+        phase = .fitting
+        target = nil
         if let recording {
             let frames = collected
             Task.detached(priority: .utility) {

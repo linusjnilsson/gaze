@@ -118,7 +118,7 @@ func report(_ name: String, _ perTarget: [Int: [SIMD2<Double>]], model: GazeMode
 if CommandLine.arguments.contains("-time") {
     // The personalization fit at the size of a calibration with the moving dot.
     var rng = SystemRandomNumberGenerator()
-    for (rows, groupCount) in [(190, 19), (500, 50), (700, 70)] {
+    for (rows, groupCount) in [(190, 19), (500, 50), (700, 70), (1500, 118), (3000, 236)] {
         let features = (0..<rows).map { _ in (0..<512).map { _ in Float.random(in: -1...1, using: &rng) } }
         let residuals = (0..<rows).map { _ in SIMD2(Double.random(in: -0.1...0.1), .random(in: -0.1...0.1)) }
         let start = Date()

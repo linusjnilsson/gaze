@@ -1062,6 +1062,18 @@ struct FeatureCorrectionTests {
         #expect(simd_length(correction.correction(for: features(probe)) - error(probe)) < 0.005)
     }
 
+    /// A calibration on two displays gives thousands of frames; the fit once grew with their cube
+    /// and took minutes, leaving the calibration stuck on "Computing calibration…".
+    @Test func staysQuickWithThousandsOfFrames() throws {
+        var rng = SeededGenerator(seed: 5)
+        let rows = 3000
+        let features = (0..<rows).map { _ in (0..<512).map { _ in Float.random(in: -1...1, using: &rng) } }
+        let residuals = (0..<rows).map { _ in SIMD2(Double.random(in: -0.1...0.1, using: &rng), .random(in: -0.1...0.1, using: &rng)) }
+        let start = Date()
+        _ = try #require(FeatureCorrection.fit(features: features, residuals: residuals, groups: (0..<rows).map { $0 / 13 }))
+        #expect(Date().timeIntervalSince(start) < 10)
+    }
+
     @Test func normalizedAnglesRoundTrip() throws {
         let scene = SyntheticScene()
         let head = SyntheticScene.head(offset: Vec3(40, -20, 30), rotation: Vec3(0.1, -0.2, 0.15))

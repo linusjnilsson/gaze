@@ -1,3 +1,4 @@
+import Accelerate
 import Foundation
 import simd
 
@@ -40,76 +41,79 @@ public struct FeatureCorrection: Sendable, Codable, Equatable {
         var variance = 0.0
         for f in features { for i in 0..<dimension { variance += pow(Double(f[i]) - mean[i], 2) } }
         let scale = max((variance / Double(features.count)).squareRoot(), 1e-6)
-        let x = features.map { f in (0..<dimension).map { (Double(f[$0]) - mean[$0]) / scale } }
-
-        // Gram matrix: with fewer frames than features, the dual form is the smaller problem.
-        let n = x.count
-        var gram = [Double](repeating: 0, count: n * n)
-        for i in 0..<n {
-            for j in 0...i {
-                var dot = 0.0
-                for k in 0..<dimension { dot += x[i][k] * x[j][k] }
-                gram[i * n + j] = dot
-                gram[j * n + i] = dot
-            }
+        // Scaled features, n × d row-major.
+        let n = features.count, d = dimension
+        var x = [Double](repeating: 0, count: n * d)
+        for (i, f) in features.enumerated() {
+            for k in 0..<d { x[i * d + k] = (Double(f[k]) - mean[k]) / scale }
         }
+        var xt = [Double](repeating: 0, count: d * n)
+        vDSP_mtransD(x, 1, &xt, 1, vDSP_Length(d), vDSP_Length(n))
+        // XᵀX, d × d: the primal form, whose size doesn't grow with the number of frames. (The
+        // dual form, n × n, grew with the cube of the frames: minutes for a two-display calibration.)
+        var xtx = [Double](repeating: 0, count: d * d)
+        vDSP_mmulD(xt, 1, x, 1, &xtx, 1, vDSP_Length(d), vDSP_Length(d), vDSP_Length(n))
 
-        /// Dual coefficients and offset fitted on `rows`.
-        func solve(_ rows: [Int], lambda: Double) -> (alpha: [SIMD2<Double>], offset: SIMD2<Double>)? {
-            let m = rows.count
-            let offset = rows.reduce(SIMD2<Double>.zero) { $0 + residuals[$1] } / Double(m)
-            var a = [Double](repeating: 0, count: m * m)
-            for (p, i) in rows.enumerated() {
-                for (q, j) in rows.enumerated() { a[p * m + q] = gram[i * n + j] }
-                a[p * m + p] += lambda
-            }
-            let rhs = [rows.map { residuals[$0].x - offset.x }, rows.map { residuals[$0].y - offset.y }]
-            guard let solution = LinearAlgebra.choleskySolve(a, n: m, rhs: rhs) else { return nil }
-            return (zip(solution[0], solution[1]).map { SIMD2($0, $1) }, offset)
+        // Residuals are centered on all frames (the fitted offset), which lets a held-out group
+        // nudge its own offset by 1 / groups.
+        let center = residuals.reduce(SIMD2<Double>.zero, +) / Double(n)
+        // Centered residuals, n × 2 row-major, and Xᵀy, d × 2.
+        var y = [Double](repeating: 0, count: n * 2)
+        for (i, r) in residuals.enumerated() {
+            y[i * 2] = r.x - center.x
+            y[i * 2 + 1] = r.y - center.y
         }
+        var xty = [Double](repeating: 0, count: d * 2)
+        vDSP_mmulD(xt, 1, y, 1, &xty, 1, vDSP_Length(d), 2, vDSP_Length(n))
+        let members = distinct.map { group in groups.indices.filter { groups[$0] == group } }
+        let baseline = members.map { test in
+            simd_length(test.reduce(SIMD2<Double>.zero) { $0 + residuals[$1] } / Double(test.count))
+        }.reduce(0, +) / Double(members.count)
+
         // Regularization relative to the features' total variance per frame (= dimension after scaling).
         // Each strength is judged by holding out one group at a time. For ridge regression that
-        // needs no refit: with A = (K + λI)⁻¹, a held-out group's errors are A_gg⁻¹ (A y)_g. One
-        // inverse per strength instead of one solve per group keeps a calibration with a moving
-        // dot (about 50 groups, 500 frames) quick. Residuals are centered on all frames (the
-        // fitted offset), which lets a held-out group nudge its own offset by 1 / groups.
-        let base = Double(dimension)
-        let center = residuals.reduce(SIMD2<Double>.zero, +) / Double(n)
-        let centered = [residuals.map { $0.x - center.x }, residuals.map { $0.y - center.y }]
-        let members = distinct.map { group in groups.indices.filter { groups[$0] == group } }
-        let identity = (0..<n).map { i in (0..<n).map { $0 == i ? 1.0 : 0 } }
-        var best: (lambda: Double, error: Double)?
-        var baseline = 0.0
-        for lambda in [0.01, 0.03, 0.1, 0.3, 1, 3, 10].map({ $0 * base }) {
-            var a = gram
-            for i in 0..<n { a[i * n + i] += lambda }
-            guard let inverse = LinearAlgebra.choleskySolve(a, n: n, rhs: identity) else { continue }
-            let ay = centered.map { y in (0..<n).map { i in (0..<n).reduce(0.0) { $0 + inverse[i][$1] * y[$1] } } }
+        // needs no refit: with the hat matrix H = X (XᵀX + λI)⁻¹ Xᵀ, a held-out group's errors are
+        // (I − H_gg)⁻¹ (y − Hy)_g.
+        var best: (lambda: Double, error: Double, weights: [Double])?
+        for lambda in [0.01, 0.03, 0.1, 0.3, 1, 3, 10].map({ $0 * Double(d) }) {
+            var a = xtx
+            for i in 0..<d { a[i * d + i] += lambda }
+            guard let inverse = LinearAlgebra.choleskyInverse(a, n: d) else { continue }
+            // Weights (d × 2), fitted values (n × 2), and P = X (XᵀX + λI)⁻¹ (n × d), so H_ij = P_i · X_j.
+            var weights = [Double](repeating: 0, count: d * 2)
+            vDSP_mmulD(inverse, 1, xty, 1, &weights, 1, vDSP_Length(d), 2, vDSP_Length(d))
+            var fitted = [Double](repeating: 0, count: n * 2)
+            vDSP_mmulD(x, 1, weights, 1, &fitted, 1, vDSP_Length(n), 2, vDSP_Length(d))
+            var p = [Double](repeating: 0, count: n * d)
+            vDSP_mmulD(x, 1, inverse, 1, &p, 1, vDSP_Length(n), vDSP_Length(d), vDSP_Length(d))
             var errors: [Double] = []
-            var baselineErrors: [Double] = []
             for test in members {
                 let m = test.count
                 var block = [Double](repeating: 0, count: m * m)
-                for (p, i) in test.enumerated() { for (q, j) in test.enumerated() { block[p * m + q] = inverse[i][j] } }
-                guard let heldOut = LinearAlgebra.choleskySolve(block, n: m, rhs: ay.map { y in test.map { y[$0] } }) else { continue }
+                p.withUnsafeBufferPointer { p in
+                    x.withUnsafeBufferPointer { x in
+                        for (r, i) in test.enumerated() {
+                            for (c, j) in test.enumerated() where c >= r {
+                                var h = 0.0
+                                vDSP_dotprD(p.baseAddress! + i * d, 1, x.baseAddress! + j * d, 1, &h, vDSP_Length(d))
+                                block[r * m + c] = (r == c ? 1 : 0) - h
+                                block[c * m + r] = block[r * m + c]
+                            }
+                        }
+                    }
+                }
+                let rhs = [test.map { y[$0 * 2] - fitted[$0 * 2] }, test.map { y[$0 * 2 + 1] - fitted[$0 * 2 + 1] }]
+                guard let heldOut = LinearAlgebra.choleskySolve(block, n: m, rhs: rhs) else { continue }
                 // Error of the group's mean prediction, as validation judges a target.
                 errors.append(simd_length(SIMD2(heldOut[0].reduce(0, +), heldOut[1].reduce(0, +)) / Double(m)))
-                baselineErrors.append(simd_length(test.reduce(SIMD2<Double>.zero) { $0 + residuals[$1] } / Double(m)))
             }
             let error = errors.reduce(0, +) / Double(max(errors.count, 1))
-            baseline = baselineErrors.reduce(0, +) / Double(max(baselineErrors.count, 1))
-            if best == nil || error < best!.error { best = (lambda, error) }
+            if best == nil || error < best!.error { best = (lambda, error, weights) }
         }
-        let all = Array(0..<n)
-        guard let best, let fit = solve(all, lambda: best.lambda) else { return nil }
-        var weights = [Double](repeating: 0, count: 2 * dimension)
-        for (i, alpha) in fit.alpha.enumerated() {
-            for k in 0..<dimension {
-                weights[k] += alpha.x * x[i][k]
-                weights[dimension + k] += alpha.y * x[i][k]
-            }
-        }
-        let correction = FeatureCorrection(mean: mean.map(Float.init), scale: Float(scale), weights: weights.map(Float.init), offset: fit.offset)
+        guard let best else { return nil }
+        // Weights as [pitch..., yaw...].
+        let weights = (0..<d).map { best.weights[$0 * 2] } + (0..<d).map { best.weights[$0 * 2 + 1] }
+        let correction = FeatureCorrection(mean: mean.map(Float.init), scale: Float(scale), weights: weights.map(Float.init), offset: center)
         return (correction, best.error, baseline)
     }
 }

@@ -1,3 +1,4 @@
+import Accelerate
 import CoreGraphics
 import Foundation
 import simd
@@ -49,6 +50,52 @@ public enum Rotation {
 }
 
 enum LinearAlgebra {
+    /// The inverse of a symmetric positive-definite `A` (row-major n×n), through its Cholesky
+    /// factor: A⁻¹ = L⁻ᵀ L⁻¹. Quick enough for a few hundred rows.
+    static func choleskyInverse(_ a: [Double], n: Int) -> [Double]? {
+        var l = [Double](repeating: 0, count: n * n)
+        var lInverse = [Double](repeating: 0, count: n * n)
+        // Dot products of row stretches with vDSP: much quicker than plain loops, also unoptimized.
+        let factored = l.withUnsafeMutableBufferPointer { l in
+            let l = l.baseAddress!
+            for j in 0..<n {
+                var dot = 0.0
+                vDSP_dotprD(l + j * n, 1, l + j * n, 1, &dot, vDSP_Length(j))
+                let sum = a[j * n + j] - dot
+                guard sum > 1e-12 else { return false }
+                let diagonal = sum.squareRoot()
+                l[j * n + j] = diagonal
+                for i in (j + 1)..<n {
+                    dot = 0
+                    vDSP_dotprD(l + i * n, 1, l + j * n, 1, &dot, vDSP_Length(j))
+                    l[i * n + j] = (a[i * n + j] - dot) / diagonal
+                }
+            }
+            return true
+        }
+        guard factored else { return nil }
+        // L⁻¹ is lower triangular too, found column by column by forward substitution.
+        l.withUnsafeBufferPointer { l in
+            lInverse.withUnsafeMutableBufferPointer { inv in
+                let l = l.baseAddress!, inv = inv.baseAddress!
+                for c in 0..<n {
+                    inv[c * n + c] = 1 / l[c * n + c]
+                    for i in (c + 1)..<n {
+                        // Row i of L from column c, with column c of L⁻¹ from row c.
+                        var dot = 0.0
+                        vDSP_dotprD(l + i * n + c, 1, inv + c * n + c, n, &dot, vDSP_Length(i - c))
+                        inv[i * n + c] = -dot / l[i * n + i]
+                    }
+                }
+            }
+        }
+        var transposed = [Double](repeating: 0, count: n * n)
+        vDSP_mtransD(lInverse, 1, &transposed, 1, vDSP_Length(n), vDSP_Length(n))
+        var inverse = [Double](repeating: 0, count: n * n)
+        vDSP_mmulD(transposed, 1, lInverse, 1, &inverse, 1, vDSP_Length(n), vDSP_Length(n), vDSP_Length(n))
+        return inverse
+    }
+
     /// Solves `A x = b` for each `b` in `rhs`, where `A` is symmetric positive-definite (row-major n×n).
     static func choleskySolve(_ a: [Double], n: Int, rhs: [[Double]]) -> [[Double]]? {
         var l = [Double](repeating: 0, count: n * n)

@@ -280,7 +280,7 @@ public struct GazeModel: Sendable, Codable, Equatable {
 
     /// Everyday events with network features needed before the personalization is relearned from them.
     public static let personalizationMinimumEvents = 40
-    /// Most recent everyday events the personalization learns from (the fit grows with the cube).
+    /// Most recent everyday events the personalization learns from.
     static let personalizationMaximumEvents = 600
 
     /// Relearns the network's personalization from learning samples: every calibration event plus
