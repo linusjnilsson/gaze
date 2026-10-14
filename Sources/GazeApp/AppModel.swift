@@ -250,6 +250,8 @@ final class AppModel {
     }
 
     private func setPaused(_ paused: Bool, because reason: String) {
+        // The Mac may not wake up again (battery, shutdown): write what was learned.
+        if paused { saveLearningNow() }
         if paused { pauseReasons.insert(reason) } else { pauseReasons.remove(reason) }
         if pauseReasons.isEmpty { engine.resume() } else { engine.pause() }
     }
@@ -390,21 +392,26 @@ final class AppModel {
         watchForAccessibilityAccess()
     }
 
+    /// Takes a refit model in use at once; it reaches the disk with the next learning save.
     private func saveLearned(model: GazeModel, samples: [InteractionSample], baseline: Double) {
-        pendingSave?.cancel()
-        pendingSave = nil
         guard var profile else { return }
         profile.model = model
         profile.interactions = samples
         profile.lastAdjusted = .now
         profile.learningBaseline = baseline
-        save(profile)
+        remember(profile)
+        scheduleLearningSave()
     }
+
+    /// How long learned samples may wait in memory before they're written. A profile is several
+    /// megabytes, and writing it after every click came to gigabytes a day; on a crash, only this
+    /// much learning is lost. Sleep, locking, switching profiles and quitting write sooner.
+    static let learningSaveDelay: Duration = .seconds(600)
 
     private func scheduleLearningSave() {
         guard pendingSave == nil else { return }
         pendingSave = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(5))
+            try? await Task.sleep(for: Self.learningSaveDelay)
             guard !Task.isCancelled else { return }
             self?.saveLearningNow()
         }
@@ -427,6 +434,11 @@ final class AppModel {
         } catch {
             saveError = "Could not save profile: \(error.localizedDescription)"
         }
+        remember(profile)
+    }
+
+    /// Updates the profile in memory only.
+    private func remember(_ profile: CalibrationProfile) {
         if let index = profiles.firstIndex(where: { $0.id == profile.id }) {
             profiles[index] = profile
         } else {

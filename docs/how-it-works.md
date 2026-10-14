@@ -74,8 +74,9 @@ saved with everything learned since in `~/Library/Application Support/Gaze/Profi
 change, the most recently used matching profile loads automatically, so switching between home and
 office needs no recalibration. Several profiles can share the same displays (say "Home" and "Café"
 for the laptop alone, where seating and lighting differ); pick one from the profile menu, which
-also creates, renames and deletes profiles. Learned interactions are written a few seconds after
-they happen, and on quit or when switching profiles.
+also creates, renames and deletes profiles. Learned interactions are written at most every 10
+minutes, and when the screen sleeps or locks, on quit, or when switching profiles: a profile is a
+few megabytes, and writing it after every click came to 2 GB in 13 hours.
 
 **Recordings.** With *Save calibration recordings* on (off by default), each calibration also saves
 its frames to `~/Library/Application Support/Gaze/Recordings/<date>/`: a JPEG crop around the face
